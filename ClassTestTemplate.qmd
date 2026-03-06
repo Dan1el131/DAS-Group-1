@@ -1,5 +1,5 @@
 ---
-title: "Write your TITLE"
+title: "Group Project"
 author: "Your NAME goes here"
 execute: 
   echo: false
@@ -60,3 +60,4 @@ q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_mat
 # Code for further Question 1 part 2
 
 ```
+
