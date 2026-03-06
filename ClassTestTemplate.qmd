@@ -60,5 +60,13 @@ q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_mat
 # Code for further Question 1 part 2
 
 ```
+obesity <- read.csv("DAProject1.csv")
+obesity$Obese <- as.factor(obesity$Obese)
+model_bmi <- glm(Obese ~ Year, data = obesity, family = binomial)
+library(tidyverse)
+library(ggplot2)
+library(tidymodels)
+library(sjPlot)
+plot_model(model_bmi)
 
 
