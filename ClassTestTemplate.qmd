@@ -1,0 +1,62 @@
+---
+title: "Write your TITLE"
+author: "Your NAME goes here"
+execute: 
+  echo: false
+  eval: true
+number-sections: true
+format:
+  html:
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+library(tidyverse)    # Data wrangling 
+library(ggplot2)      # Data visualization
+library(performance)  # Model assessment
+library(skimr)        # Exploratory analysis
+library(sjPlot)       # Plot and tables for linear models
+library(kableExtra)   # Formatting html table
+
+# Read the Data using the following line of code:
+
+report_data <- read.csv(url("https://github.com/DA-STATS3011-STATS4052/DA-course_materials/raw/main/docs/data_sets/PGALPGA2008.csv"))
+
+```
+
+# Introduction {#sec-intro}
+
+# Exploratory Analysis {#sec-EA}
+
+# Formal Analysis {#sec-FA}
+
+# Conclusions {#sec-con}
+
+------------------------------------------------------------------------
+
+# Further Questions {#sec-further}
+
+## Part 1
+
+```{r}
+#| echo: true
+#| tidy: true
+
+# Data has been pre-loaded
+q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_materials/raw/main/docs/data_sets/test1.csv'))
+# Code for further Question 1 part 1
+
+```
+
+## Part 2
+
+```{r}
+#| echo: true
+# Code for further Question 1 part 2
+
+```
