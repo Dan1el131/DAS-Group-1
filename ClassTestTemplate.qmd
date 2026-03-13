@@ -33,6 +33,31 @@ report_data <- read.csv(url("https://github.com/DA-STATS3011-STATS4052/DA-course
 
 # Exploratory Analysis {#sec-EA}
 
+```{r}
+#| label: fig-bar
+#| fig-cap: "Obesity by Year Bar Plot"
+
+ggplot(obesity, aes(x = Year, fill = Obese)) + 
+  geom_bar(colour = "black", position = "dodge") + 
+  scale_fill_manual(values = c("Yes" = "lightblue", "No" = "salmon")) + 
+  labs(y = "Number of Individuals Classed as Obese", 
+       title = "Obesity Count by Year")
+```
+
+```{r}
+#| label: tbl-prevelance
+#| tbl-cap: "prevelance comparison table"
+
+obesity %>%
+  group_by(Year) %>%
+  summarise(
+    Obese = sum(Obese == "Yes"),
+    Total = n(),
+    Prevalence = Obese / Total
+  ) %>%
+  kable(digits = 3, caption = "Obesity Prevalence by Year")
+```
+
 # Formal Analysis {#sec-FA}
 
 # Conclusions {#sec-con}
@@ -60,4 +85,5 @@ q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_mat
 # Code for further Question 1 part 2
 
 ```
+
 
