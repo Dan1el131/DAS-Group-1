@@ -25,7 +25,24 @@ library(kableExtra)   # Formatting html table
 
 # Read the Data using the following line of code:
 
-report_data <- read.csv(url("https://github.com/DA-STATS3011-STATS4052/DA-course_materials/raw/main/docs/data_sets/PGALPGA2008.csv"))
+```{r}
+#| warning: false
+#| message: false
+library(tidyverse)
+library(ggplot2)
+library(tidymodels)
+library(sjPlot)
+library(performance)
+library(skimr)
+library(kableExtra)
+library(dplyr)
+library(knitr)
+
+obesity <- read.csv("DAProject1.csv")
+obesity$Obese <- as.factor(obesity$Obese)
+obesity$Year <- as.factor(obesity$Year)
+```
+
 
 ```
 
@@ -38,10 +55,10 @@ report_data <- read.csv(url("https://github.com/DA-STATS3011-STATS4052/DA-course
 #| fig-cap: "Obesity by Year Bar Plot"
 
 ggplot(obesity, aes(x = Year, fill = Obese)) + 
-  geom_bar(colour = "black", position = "dodge") + 
+  geom_bar(colour = "black", position = "fill") + 
   scale_fill_manual(values = c("Yes" = "lightblue", "No" = "salmon")) + 
-  labs(y = "Number of Individuals Classed as Obese", 
-       title = "Obesity Count by Year")
+  labs(y = "Proportion", 
+       title = "Obesity Proportion by Year")
 ```
 
 ```{r}
@@ -85,5 +102,6 @@ q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_mat
 # Code for further Question 1 part 2
 
 ```
+
 
 
