@@ -25,7 +25,7 @@ library(kableExtra)   # Formatting html table
 
 # Read the Data using the following line of code:
 
-report_data <- read.csv(url("https://github.com/DA-STATS3011-STATS4052/DA-course_materials/raw/main/docs/data_sets/PGALPGA2008.csv"))
+group1_data <- read.csv("DAProject1.csv")
 
 ```
 
@@ -68,6 +68,7 @@ library(ggplot2)
 library(tidymodels)
 library(sjPlot)
 plot_model(model_bmi)
+
 
 
 
