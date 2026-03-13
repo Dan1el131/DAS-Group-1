@@ -13,19 +13,6 @@ editor_options:
 ---
 
 ```{r}
-#| echo: false
-#| warning: false
-#| message: false
-library(tidyverse)    # Data wrangling 
-library(ggplot2)      # Data visualization
-library(performance)  # Model assessment
-library(skimr)        # Exploratory analysis
-library(sjPlot)       # Plot and tables for linear models
-library(kableExtra)   # Formatting html table
-
-# Read the Data using the following line of code:
-
-```{r}
 #| warning: false
 #| message: false
 library(tidyverse)
@@ -102,6 +89,7 @@ q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_mat
 # Code for further Question 1 part 2
 
 ```
+
 
 
 
