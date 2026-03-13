@@ -47,7 +47,7 @@ ggplot(obesity, aes(x = Year, fill = Obese)) +
   labs(y = "Proportion", 
        title = "Obesity Proportion by Year")
 ```
-The bars in the plot appear to be fairly consistent. This indicates that the prevelance of obesity across Scotland over the years in the survey has not changed much, although it may be more clear from a table.
+The bars in the plot appear to be fairly consistent. This indicates that the prevalence of obesity across Scotland over the years in the survey has not changed much, although it may be more clear from a table.
 
 ```{r}
 #| label: tbl-prevelance
@@ -62,7 +62,7 @@ obesity %>%
   ) %>%
   kable(digits = 3, caption = "Obesity Prevalence by Year")
 ```
-Now using a table we see that the prevelance of obesity is 0.296 in 2008, 2011 and 2012. It slightly dropped in 2009 and peaked in 2010 but not enough to infer that the prevelance changed over the years. Furthermore, these two outliers are still pretty close to 0.296.
+Now using a table we see that the prevalence of obesity is 0.296 in 2008, 2011 and 2012. It slightly dropped in 2009 and peaked in 2010 but not enough to infer that the prevalence changed over the years. Furthermore, these two outliers are still pretty close to 0.296.
 
 # Formal Analysis {#sec-FA}
 
@@ -91,6 +91,7 @@ q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_mat
 # Code for further Question 1 part 2
 
 ```
+
 
 
 
