@@ -13,61 +13,59 @@ editor_options:
 ---
 
 ```{r}
-#| echo: false
 #| warning: false
 #| message: false
-library(tidyverse)    # Data wrangling 
-library(ggplot2)      # Data visualization
-library(performance)  # Model assessment
-library(skimr)        # Exploratory analysis
-library(sjPlot)       # Plot and tables for linear models
-library(kableExtra)   # Formatting html table
+library(tidyverse)
+library(ggplot2)
+library(tidymodels)
+library(sjPlot)
+library(performance)
+library(skimr)
+library(kableExtra)
+library(dplyr)
+library(knitr)
+```
 
-# Read the Data using the following line of code:
-
-group1_data <- read.csv("DAProject1.csv")
-
+```{r}
+obesity <- read.csv("DAProject1.csv")
+obesity$Obese <- as.factor(obesity$Obese)
+obesity$Year <- as.factor(obesity$Year)
 ```
 
 # Introduction {#sec-intro}
 
 # Exploratory Analysis {#sec-EA}
 
+```{r}
+#| label: fig-bar
+#| fig-cap: "Obesity by Year Bar Plot"
+
+ggplot(obesity, aes(x = Year, fill = Obese)) + 
+  geom_bar(colour = "black", position = "fill") + 
+  scale_fill_manual(values = c("Yes" = "lightblue", "No" = "salmon")) + 
+  labs(y = "Proportion", 
+       title = "Obesity Proportion by Year")
+```
+The bars in the plot appear to be fairly consistent. This indicates that the prevalence of obesity across Scotland over the years in the survey has not changed much, although it may be more clear from a table.
+
+```{r}
+#| label: tbl-prevelance
+#| tbl-cap: "prevelance comparison table"
+
+obesity %>%
+  group_by(Year) %>%
+  summarise(
+    Obese = sum(Obese == "Yes"),
+    Total = n(),
+    Prevalence = Obese / Total
+  ) %>%
+  kable(digits = 3, caption = "Obesity Prevalence by Year")
+```
+Now using a table we see that the prevalence of obesity is 0.296 in 2008, 2011 and 2012. It slightly dropped in 2009 and peaked in 2010 but not enough to infer that the prevalence changed over the years. Furthermore, these two outliers are still pretty close to 0.296.
+
 # Formal Analysis {#sec-FA}
 
 # Conclusions {#sec-con}
-
-------------------------------------------------------------------------
-
-# Further Questions {#sec-further}
-
-## Part 1
-
-```{r}
-#| echo: true
-#| tidy: true
-
-# Data has been pre-loaded
-q2_data <- read.csv(url('https://github.com/DA-STATS3011-STATS4052/DA-course_materials/raw/main/docs/data_sets/test1.csv'))
-# Code for further Question 1 part 1
-
-```
-
-## Part 2
-
-```{r}
-#| echo: true
-# Code for further Question 1 part 2
-
-```
-obesity <- read.csv("DAProject1.csv")
-obesity$Obese <- as.factor(obesity$Obese)
-model_bmi <- glm(Obese ~ Year, data = obesity, family = binomial)
-library(tidyverse)
-library(ggplot2)
-library(tidymodels)
-library(sjPlot)
-plot_model(model_bmi)
 
 
 
