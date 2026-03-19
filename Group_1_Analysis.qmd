@@ -1,6 +1,6 @@
 ---
-title: Group Project
-author: "Your NAME goes here"
+title: An Analysis of Obesity Prevalence and Associated Factors in Scotland (2008–2012)
+author: Group 1
 execute: 
   echo: false
   eval: true
@@ -33,6 +33,9 @@ obesity$Year <- as.factor(obesity$Year)
 ```
 
 # Introduction {#sec-intro}
+Obesity is a major public health concern, associated with an increased risk of chronic conditions such as cardiovascular disease, type 2 diabetes, and certain cancers. Understanding how obesity prevalence changes over time, and how it is influenced by demographic, socio-economic, and lifestyle factors, is essential for informing effective health policy and interventions.
+This report analyses data from the Scottish Health Surveys conducted between 2008 and 2012. The dataset includes individual-level information on age, sex, educational attainment, dietary behaviours (fruit and vegetable consumption), and obesity status. These variables provide a valuable opportunity to explore both temporal trends and potential risk factors associated with obesity within the Scottish population.
+The primary aim of this analysis is to assess whether the prevalence of obesity in Scotland has changed over the period 2008–2012. In addition, the report investigates whether obesity varies across key demographic groups, socio-economic indicators, and lifestyle behaviours.
 
 # Exploratory Analysis {#sec-EA}
 
