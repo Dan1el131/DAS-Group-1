@@ -1,0 +1,169 @@
+---
+title: "Data Analysis Group Project"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show code"
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(knitr)
+```
+
+```{r load-data}
+data <- read.csv('/Users/luoziyue/Desktop/DA group project/DA group project/DAProject1.csv', stringsAsFactors = TRUE)
+
+edu_order <- c("No qualifications",
+               "Other school level",
+               "Standard grade or equiv",
+               "Higher grade or equiv",
+               "HNC/D or equiv",
+               "Degree or higher")
+
+data <- data %>%
+  mutate(
+    Education = factor(Education, levels = edu_order),
+    Age_Group  = cut(Age,
+                     breaks = c(15, 24, 34, 44, 54, 64, 74, Inf),
+                     labels = c("16–24", "25–34", "35–44",
+                                "45–54", "55–64", "65–74", "75+"),
+                     right  = TRUE),
+    Obese_bin  = as.integer(Obese == "Yes")
+  )
+```
+
+## Exploratory Data Analysis
+
+```{r summary-table}
+library(kableExtra)
+
+make_rows <- function(df, group_var) {
+  df %>%
+    group_by(Subgroup = as.character({{ group_var }})) %>%
+    summarise(N = n(), Obese_Pct = mean(Obese_bin) * 100, .groups = "drop")
+}
+
+t_sex  <- make_rows(data, Sex)
+t_age  <- make_rows(data, Age_Group)
+t_edu  <- make_rows(data, Education)
+t_life <- data %>%
+  group_by(Subgroup = paste0("Veg: ", Veg, ", Fruit: ", Fruit)) %>%
+  summarise(N = n(), Obese_Pct = mean(Obese_bin) * 100, .groups = "drop")
+
+combined <- bind_rows(t_sex, t_age, t_edu, t_life)
+
+group_sizes <- c(
+  "Sex"            = nrow(t_sex),
+  "Age Group"      = nrow(t_age),
+  "Education"      = nrow(t_edu),
+  "Lifestyle"      = nrow(t_life)
+)
+
+combined %>%
+  kable(digits = 1, col.names = c("Subgroup", "N", "Obese (%)"),
+        caption = "Table 1: Obesity prevalence by sex, age group, education level, and lifestyle factors.") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  pack_rows(index = group_sizes)
+```
+
+Table 1 breaks down obesity prevalence across the four variables of interest; the following plots examine each factor in turn.
+
+### Obesity by Sex
+
+```{r fig-sex}
+prop_sex <- data %>%
+  group_by(Sex, Obese) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Sex) %>%
+  mutate(prop = n / sum(n))
+
+ggplot(prop_sex, aes(x = Sex, y = prop, fill = Obese)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.6) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_manual(values = c("No" = "lightblue", "Yes" = "salmon"), name = "Obese") +
+  labs(title = "Figure 1: Obesity Prevalence by Sex", x = "Sex", y = "Proportion") +
+  theme_bw(base_size = 13)
+```
+
+As shown in Figure 1, obesity rates are fairly comparable between males and females, with no substantial gap in either direction. On its own, sex does not appear to be a strong differentiator, though it may interact with other variables in later modelling.
+
+### Obesity by Age Group
+
+```{r fig-age}
+prop_age <- data %>%
+  group_by(Age_Group, Obese) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Age_Group) %>%
+  mutate(prop = n / sum(n))
+
+ggplot(prop_age, aes(x = Age_Group, y = prop, fill = Obese)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.7) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_manual(values = c("No" = "lightblue", "Yes" = "salmon"), name = "Obese") +
+  labs(title = "Figure 2: Obesity Prevalence by Age Group", x = "Age Group", y = "Proportion") +
+  theme_bw(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+Figure 2 shows obesity rates climbing through middle age, reaching a peak around the 45–64 bracket, then dropping off for those aged 75 and over. The lower rate in the oldest group is worth treating with some caution, as it may partly reflect survivorship bias rather than a genuine health advantage.
+
+### Obesity by Education Level
+
+```{r fig-edu}
+prop_edu <- data %>%
+  group_by(Education, Obese) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Education) %>%
+  mutate(prop = n / sum(n))
+
+ggplot(prop_edu, aes(x = Education, y = prop, fill = Obese)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.7) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_manual(values = c("No" = "lightblue", "Yes" = "salmon"), name = "Obese") +
+  labs(title = "Figure 3: Obesity Prevalence by Education Level (SES proxy)",
+       x = "Education Level", y = "Proportion") +
+  theme_bw(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1))
+```
+
+Figure 3 points to a fairly consistent socioeconomic gradient: those with no qualifications have the highest obesity rates, and the proportion falls as education level rises. This sits well with wider public health evidence linking lower socioeconomic position to worse health outcomes.
+
+### Obesity by Dietary Behaviour
+
+```{r fig-diet}
+prop_diet <- bind_rows(
+  data %>%
+    group_by(Category = Veg, Obese) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(Category) %>%
+    mutate(prop = n / sum(n), Variable = "Vegetable Intake"),
+  data %>%
+    group_by(Category = Fruit, Obese) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(Category) %>%
+    mutate(prop = n / sum(n), Variable = "Fruit Intake")
+)
+
+ggplot(prop_diet, aes(x = Category, y = prop, fill = Obese)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.6) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_manual(values = c("No" = "lightblue", "Yes" = "salmon"), name = "Obese") +
+  facet_wrap(~ Variable) +
+  labs(title = "Figure 4: Obesity Prevalence by Daily Vegetable and Fruit Intake",
+       x = "Meets Daily Recommendation", y = "Proportion") +
+  theme_bw(base_size = 13)
+```
+
+Figure 4 indicates that people who meet the daily recommended intake for both vegetables and fruit tend to have slightly lower obesity rates. The difference is not dramatic, but it holds for both dietary variables, hinting that behavioural factors may contribute alongside the demographic patterns seen earlier.
