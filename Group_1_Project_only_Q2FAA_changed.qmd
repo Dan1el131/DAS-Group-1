@@ -1,0 +1,453 @@
+---
+title: An Analysis of Obesity Prevalence and Associated Factors in Scotland (2008–2012)
+author: Group 1
+execute: 
+  echo: false
+  eval: true
+number-sections: true
+format:
+  html:
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| message: false
+#| warning: false
+library(tidyverse)
+library(ggplot2)
+library(tidymodels)
+library(sjPlot)
+library(performance)
+library(skimr)
+library(kableExtra)
+library(dplyr)
+library(knitr)
+library(pROC)
+```
+
+```{r}
+dat <- read.csv("DAProject1.csv")
+
+dat <- dat %>%
+  mutate(
+    Obese = factor(Obese, levels = c("No", "Yes")),
+    Year = factor(Year),
+    Sex = factor(Sex),
+    Education = factor(Education),
+    Veg = factor(Veg),
+    Fruit = factor(Fruit)
+  )
+
+
+dat$Obese <- as.factor(dat$Obese)
+dat$Year <- as.factor(dat$Year)
+
+edu_order <- c("No qualifications",
+               "Other school level",
+               "Standard grade or equiv",
+               "Higher grade or equiv",
+               "HNC/D or equiv",
+               "Degree or higher")
+
+dat <- dat %>%
+  mutate(
+    Education = factor(Education, levels = edu_order),
+    Age_Group  = cut(Age,
+                     breaks = c(15, 24, 34, 44, 54, 64, 74, Inf),
+                     labels = c("16–24", "25–34", "35–44",
+                                "45–54", "55–64", "65–74", "75+"),
+                     right  = TRUE),
+    Obese_bin  = as.integer(Obese == "Yes")
+  )
+```
+
+# Introduction {#sec-intro}
+
+Obesity is a major public health concern, associated with an increased risk of chronic conditions such as cardiovascular disease, type 2 diabetes, and certain cancers. Understanding how obesity prevalence changes over time, and how it is influenced by demographic, socio-economic, and lifestyle factors, is essential for informing effective health policy and interventions. This report analyses data from the Scottish Health Surveys conducted between 2008 and 2012. The dataset includes individual-level information on age, sex, educational attainment, dietary behaviours (fruit and vegetable consumption), and obesity status. These variables provide a valuable opportunity to explore both temporal trends and potential risk factors associated with obesity within the Scottish population. The primary aim of this analysis is to assess whether the prevalence of obesity in Scotland has changed over the period 2008–2012. In addition, the report investigates whether obesity varies across key demographic groups, socio-economic indicators, and lifestyle behaviours.
+
+# Exploratory Analysis {#sec-EA}
+
+```{r}
+#| label: fig-bar
+#| fig-cap: "Obesity by Year Bar Plot"
+
+ggplot(dat, aes(x = Year, fill = Obese)) + 
+  geom_bar(colour = "black", position = "fill") + 
+  scale_fill_manual(values = c("Yes" = "lightblue", "No" = "salmon")) + 
+  labs(y = "Proportion", 
+       title = "Obesity Proportion by Year")
+```
+
+The bars in the plot appear to be fairly consistent. This indicates that the prevalence of obesity across Scotland over the years in the survey has not changed much, although it may be more clear from a table.
+
+```{r}
+#| label: tbl-prevelance
+#| tbl-cap: "prevelance comparison table"
+
+dat %>%
+  group_by(Year) %>%
+  summarise(
+    Obese = sum(Obese == "Yes"),
+    Total = n(),
+    Prevalence = Obese / Total
+  ) %>%
+  kable(digits = 3, caption = "Obesity Prevalence by Year")
+```
+
+Now using a table we see that the prevalence of obesity is 0.296 in 2008, 2011 and 2012. It slightly dropped in 2009 and peaked in 2010 but not enough to infer that the prevalence changed over the years. Furthermore, these two outliers are still pretty close to 0.296.
+
+```{r summary-table}
+library(kableExtra)
+
+make_rows <- function(df, group_var) {
+  df %>%
+    group_by(Subgroup = as.character({{ group_var }})) %>%
+    summarise(N = n(), Obese_Pct = mean(Obese_bin) * 100, .groups = "drop")
+}
+
+t_sex  <- make_rows(dat, Sex)
+t_age  <- make_rows(dat, Age_Group)
+t_edu  <- make_rows(dat, Education)
+t_life <- dat %>%
+  group_by(Subgroup = paste0("Veg: ", Veg, ", Fruit: ", Fruit)) %>%
+  summarise(N = n(), Obese_Pct = mean(Obese_bin) * 100, .groups = "drop")
+
+combined <- bind_rows(t_sex, t_age, t_edu, t_life)
+
+group_sizes <- c(
+  "Sex"            = nrow(t_sex),
+  "Age Group"      = nrow(t_age),
+  "Education"      = nrow(t_edu),
+  "Lifestyle"      = nrow(t_life)
+)
+
+combined %>%
+  kable(digits = 1, col.names = c("Subgroup", "N", "Obese (%)"),
+        caption = "Table 1: Obesity prevalence by sex, age group, education level, and lifestyle factors.") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  pack_rows(index = group_sizes)
+```
+
+@summary-table breaks down obesity prevalence across the four variables of interest; the following plots examine each factor in turn.
+
+```{r fig-age}
+prop_age <- dat %>%
+  group_by(Age_Group, Obese) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Age_Group) %>%
+  mutate(prop = n / sum(n))
+
+ggplot(prop_age, aes(x = Age_Group, y = prop, fill = Obese)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.7) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_manual(values = c("No" = "lightblue", "Yes" = "salmon"), name = "Obese") +
+  labs(title = "Figure 2: Obesity Prevalence by Age Group", x = "Age Group", y = "Proportion") +
+  theme_bw(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+@fig-age shows obesity rates climbing through middle age, reaching a peak around the 45–64 bracket, then dropping off for those aged 75 and over. The lower rate in the oldest group is worth treating with some caution, as it may partly reflect survivorship bias rather than a genuine health advantage.
+
+```{r fig-edu}
+prop_edu <- dat %>%
+  group_by(Education, Obese) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(Education) %>%
+  mutate(prop = n / sum(n))
+
+ggplot(prop_edu, aes(x = Education, y = prop, fill = Obese)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.7) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_manual(values = c("No" = "lightblue", "Yes" = "salmon"), name = "Obese") +
+  labs(title = "Figure 3: Obesity Prevalence by Education Level (SES proxy)",
+       x = "Education Level", y = "Proportion") +
+  theme_bw(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1))
+```
+
+@fig-edu points to a fairly consistent socioeconomic gradient: those with no qualifications have the highest obesity rates, and the proportion falls as education level rises. This sits well with wider public health evidence linking lower socioeconomic position to worse health outcomes.
+
+```{r fig-diet}
+prop_diet <- bind_rows(
+  dat %>%
+    group_by(Category = Veg, Obese) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(Category) %>%
+    mutate(prop = n / sum(n), Variable = "Vegetable Intake"),
+  dat %>%
+    group_by(Category = Fruit, Obese) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(Category) %>%
+    mutate(prop = n / sum(n), Variable = "Fruit Intake")
+)
+
+ggplot(prop_diet, aes(x = Category, y = prop, fill = Obese)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.6) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_manual(values = c("No" = "lightblue", "Yes" = "salmon"), name = "Obese") +
+  facet_wrap(~ Variable) +
+  labs(title = "Figure 4: Obesity Prevalence by Daily Vegetable and Fruit Intake",
+       x = "Meets Daily Recommendation", y = "Proportion") +
+  theme_bw(base_size = 13)
+```
+
+@fig-diet indicates that people who meet the daily recommended intake for both vegetables and fruit tend to have slightly lower obesity rates. The difference is not dramatic, but it holds for both dietary variables, hinting that behavioural factors may contribute alongside the demographic patterns seen earlier.
+
+# Formal Analysis {#sec-FA}
+
+Since obesity status (Obese) is a binary outcome variable (Yes/No), a binary logistic regression model was used. First, survey year was included as a categorical predictor so that obesity prevalence could vary freely across the five survey years. The null hypothesis for this model was that obesity prevalence was the same across all years. A likelihood ratio test was used to assess the overall effect of year.
+
+To assess whether there was evidence of a linear time trend, a second logistic regression model was fitted with year treated as a continuous numeric variable. Odds ratios (ORs), 95% confidence intervals, and p-values were used to interpret the results.
+
+```{r}
+# Q1 FA
+#Formal analysis: Logistic regression with Year as a categorical predictor
+mod_year_cat <- glm(Obese ~ Year, data = dat, family = binomial)
+
+summary(mod_year_cat)
+
+#Odds ratios and 95% CIs
+or_year_cat <- tidy(mod_year_cat, exponentiate = TRUE, conf.int = TRUE)
+
+kable(or_year_cat, digits = 3,
+      caption = "Logistic regression for obesity with year as a categorical predictor (ORs relative to 2008).") %>%
+  kable_styling(full_width = FALSE)
+
+anova(mod_year_cat, test = "Chisq")
+
+# Likelihood ratio test
+mod_null <- glm(Obese ~ 1, data = dat, family = binomial)
+anova(mod_null, mod_year_cat, test = "Chisq")
+```
+
+```{r}
+#Formal analysis 2:
+dat <- dat %>%
+  mutate(Year_num = as.numeric(as.character(Year)))
+
+mod_year_trend <- glm(Obese ~ Year_num, data = dat, family = binomial)
+
+summary(mod_year_trend)
+
+or_year_trend <- tidy(mod_year_trend, exponentiate = TRUE, conf.int = TRUE)
+
+mod_year_adj <- glm(Obese ~ Year + Age + Sex + Education + Veg + Fruit,
+                    data = dat, family = binomial)
+
+summary(mod_year_adj)
+
+# Overall test for Year in adjusted model
+anova(mod_year_adj, type = "II", test.statistic = "LR")
+
+or_year_adj <- tidy(mod_year_adj, exponentiate = TRUE, conf.int = TRUE)
+```
+
+```{r}
+kable(or_year_trend, digits = 3,
+      caption = "Logistic regression testing linear yearly trend in obesity prevalence.") %>%
+  kable_styling(full_width = FALSE)
+
+kable(or_year_adj, digits = 3,
+      caption = "Adjusted logistic regression model for obesity.") %>%
+  kable_styling(full_width = FALSE)
+```
+
+In the logistic regression model with year treated as a categorical variable, there was no evidence that obesity prevalence differed across survey years overall (likelihood ratio test: 𝜒2=3.82, df=4, p=0.432).
+
+Using 2008 as the reference year, none of the other survey years showed a statistically significant difference in the odds of obesity:
+
+· 2009: p=0.378
+
+· 2010: p=0.316
+
+· 2011: p=0.929
+
+· 2012: p=0.971
+
+A second model was fitted to assess a linear trend over time. This also showed no evidence of a significant linear trend in obesity prevalence between 2008 and 2012 (p=0.586). The estimated odds ratio per additional year was approximately e0.005604≈1.006, suggesting almost no change in the odds of obesity from one year to the next.
+
+```{r}
+#Predicted probabilities by year from unadjusted categorical model
+newdat <- data.frame(Year = levels(dat$Year))
+newdat$pred <- predict(mod_year_cat, newdata = newdat, type = "response")
+
+kable(newdat, digits = 3,
+      caption = "Predicted probability of obesity by year from the unadjusted model.") %>%
+  kable_styling(full_width = FALSE)
+
+ggplot(newdat, aes(x = Year, y = 100 * pred, group = 1)) +
+  geom_point(size = 3) +
+  geom_line() +
+  labs(
+    title = "Model-based estimated obesity prevalence by year",
+    x = "Survey year",
+    y = "Predicted obesity prevalence (%)"
+  ) +
+  theme_minimal()
+```
+
+There is no statistically significant evidence that obesity prevalence in Scotland changed over the period 2008–2012. Both the categorical year model and the linear trend model suggest that obesity prevalence remained broadly stable across these survey years.
+
+```{r}
+#Q2 FA
+model_add <- glm(
+  Obese ~ Age + Sex + Education + Veg + Fruit,
+  data = dat,
+  family = binomial
+)
+
+model_inter <- glm(
+  Obese ~ Age * Sex + Education + Veg + Fruit,
+  data = dat,
+  family = binomial
+)
+```
+
+To investigate whether obesity differed by age, gender, socio-economic status and lifestyle factors, we fitted a binomial logistic regression model with obesity status as the response variable. The response variable Obese was binary, with Yes indicating an obese individual and No otherwise. The explanatory variables included age, sex, education level, vegetable intake and fruit intake. Logistic regression was appropriate because it models a binary outcome using the logit link, ensuring fitted probabilities remain within the unit interval.
+
+There may be an interactive relationship between age and gender parameters in the model. Compare pure additive models and interaction models with age and gender using AIC. The AIC of the interaction model is smaller, so the interaction model should be chosen.
+
+```{r}
+library(performance)
+compare_performance(model_add,model_inter,metrics = "AIC")
+```
+
+$$
+Y_i \sim \text{Bernoulli}(p_i)
+$$
+
+$$
+\log\left(\frac{p_i}{1-p_i}\right)
+=
+\beta_0 + \beta_1 Age_i + \beta_2 Sex_i + \beta_3 (Age_i \times Sex_i)
++ \sum_{j=1}^{5} \beta_{4j} Education_{ij}
++ \beta_5 Veg_i + \beta_6 Fruit_i
+$$
+
+• $𝑌_𝑖$ is the obesity status of the $𝑖^{𝑡ℎ}$ individual (1 = obese, 0 = not obese);
+
+• $𝑝_𝑖=𝑃(𝑌_𝑖=1)$ is the probability that the $𝑖^{𝑡ℎ}$ individual is obese;
+
+• $𝛽_0$ is the intercept of the logistic regression model;
+
+• $𝛽_1$ represents the change in the log-odds of obesity for a one increase in age for female.
+
+• $𝛽_2$ represents the difference in the log-odds of obesity between the two sex groups when age is 0;
+
+• $𝛽_3$ represents the interaction effect between age and sex, that is, how the effect of age on the log-odds of obesity differs by sex;
+
+• $𝐸𝑑𝑢𝑐a𝑡𝑖𝑜𝑛_𝑖$is a categorical variable describing the education level of the $𝑖^{𝑡ℎ}$ individual. The education categories included in the model are: Higher grade or equivalent, HNC/D or equivalent, No qualifications, Other school level, Standard grade or equivalent.
+
+The reference category is Degree or higher.
+
+• $𝛽_{4𝑗}$represents the change in the log-odds of obesity for each education category compared with the reference category (Degree or higher).
+
+• $𝛽_5$ and $𝛽_6$ are the regression coefficients for vegetable intake and fruit intake respectively;
+
+• $𝐴𝑔𝑒_𝑖 ,𝑆𝑒𝑥_𝑖,𝐸𝑑𝑢𝑐𝑎𝑡𝑖𝑜𝑛_𝑖,𝑉𝑒𝑔_𝑖,𝐹𝑟𝑢𝑖𝑡_𝑖$are the explanatory variables for the $𝑖^{th}$ individual.
+
+```{r, include=FALSE}
+#| message: false
+#| warning: false
+dat$Obese <- as.factor(dat$Obese)
+dat$Sex <- as.factor(dat$Sex)
+dat$Education <- as.factor(dat$Education)
+dat$Veg <- as.factor(dat$Veg)
+dat$Fruit <- as.factor(dat$Fruit)
+
+model_inter <- glm(
+  Obese ~ Age * Sex + Education + Veg + Fruit,
+  data = dat,
+  family = binomial
+)
+
+tab_model(
+  model_inter,
+  show.ci = TRUE,
+  show.se = FALSE,
+  show.stat = FALSE,
+  show.aic = FALSE,
+  show.dev = FALSE,
+  show.obs = TRUE,
+  show.r2 = TRUE,
+  dv.labels = "Obese",
+  string.pred = "Predictors",
+  string.est = "Log-Odds",
+  string.ci = "CI",
+  string.p = "p"
+)
+```
+
+```{r}
+tab_model( model_inter, transform = NULL )
+```
+
+```{r, eval=FALSE}
+check_model(model_inter, panel = TRUE)
+
+```
+
+Since the p-value for fruit consumption is greater than 0.05 and the 95% confidence interval includes 0, fruit intake is not significantly associated with obesity. Apart from fruit, all other predictors are statistically significant(The 0.00 in the CI of the interaction item is due to rounding). This provides evidence that age, sex, education level, vegetable consumption and the interaction between age and sex are significantly associated with obesity in this model. Age has β = 0.01, 95% CI: 0.01–0.01, indicating that for females, each additional year of age increases the log-odds of being obese by approximately 0.01. The coefficient for Sex \[Male\] (β = −0.34, 95% CI: −0.51 to −0.16) represents the difference in log-odds of obesity between males and females when age is zero. The interaction between age and sex has β = 0.01, 95% CI: 0.00–0.01, indicating that the effect of age on obesity differs by sex and increases more strongly for males than for females. Vegetable has β = −0.14, 95% CI: −0.21 to −0.08, indicating that individuals who eat vegetables have lower log-odds of being obese compared with those who do not. All estimated coefficients for the education categories are positive relative to the reference category (Degree or higher), indicating that individuals in these groups have higher log-odds of obesity than those with a degree or higher qualification.
+
+```{r, fig.width=12, fig.height=8, dpi=300}
+check_model(model_inter, panel = TRUE)
+```
+
+The model-predicted values closely match the observed data. Most residuals fall within the expected error bounds, indicating no strong evidence of systematic lack of fit. No observations fall outside the contour lines, suggesting that there are no highly influential data points affecting the model estimates. Most predictors have relatively low VIF values, indicating that multi collinearity among the explanatory variables is not severe. The quantile residuals lie close to the reference line, suggesting that the residual distribution follows the expected pattern.
+
+```{r}
+dat$prob <- predict(model_inter, type = "response")
+dat$Obese <- factor(dat$Obese, levels = c("No", "Yes"))
+```
+
+```{r}
+#| message: false
+roc_obj <- roc(dat$Obese, dat$prob, levels = c("No", "Yes"))
+
+coords(roc_obj, "best", ret = c("threshold", "sensitivity", "specificity"))
+```
+
+```{r}
+cutoff <- 0.2858467
+
+dat$pred_class <- ifelse(dat$prob > cutoff, "Yes", "No")
+dat$pred_class <- factor(dat$pred_class, levels = c("No","Yes"))
+```
+
+```{r}
+bind_rows(
+  accuracy(dat, truth = Obese, estimate = pred_class),
+  sens(dat, truth = Obese, estimate = pred_class, event_level = "second"),
+  spec(dat, truth = Obese, estimate = pred_class, event_level = "second"),
+  ppv(dat, truth = Obese, estimate = pred_class, event_level = "second"),
+  npv(dat, truth = Obese, estimate = pred_class, event_level = "second")
+)
+```
+
+```{r}
+#| message: false
+roc_obj <- roc(dat$Obese,
+               dat$prob,
+               levels = c("No","Yes"))
+```
+
+```{r}
+plot(roc_obj,
+     col="black",
+     lwd=2,
+     legacy.axes=TRUE,
+     xlab="1 - specificity",
+     ylab="sensitivity",
+     xlim=c(1,0),
+     ylim=c(0,1),
+     xaxs="i",
+     yaxs="i")
+```
+
+The best cut-off probability was approximately 0.28, which provides a balance between sensitivity and specificity. The model achieves an accuracy of 0.537, with sensitivity of 0.622 and specificity of 0.502, indicating moderate ability to identify obese individuals and have limited ability to correctly classify non-obese individuals. The ROC curve lies above the diagonal reference line, suggesting that the model performs better than random classification, although the overall discriminative ability remains relatively modest.
+
+# Conclusions {#sec-con}
+
+Obesity prevalence in Scotland is influenced by demographic and socio-economic factors, with higher rates observed among older individuals and those with lower educational attainment. While lifestyle factors such as diet show some association, their effects are less pronounced when other variables are considered. The logistic regression model captures these relationships to a limited extent, performing better at identifying obese individuals than non-obese ones. Overall, the findings suggest that obesity is shaped by multiple interacting factors and that effective interventions should focus on higher-risk groups and broader socio-economic conditions.
