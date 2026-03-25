@@ -1,0 +1,164 @@
+---
+title: "FAA_Q2"
+author: "Yanbo Fu"
+execute: 
+  echo: false
+  eval: true
+  warning: false
+number-sections: true
+format:
+  html:
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tidymodels)
+library(sjPlot)
+library(performance)
+library(kableExtra)
+library(gt)
+library(pROC)
+library(yardstick)
+```
+
+# **Formal data analysis** {#sec-intro}
+
+```{r}
+dat <- read.csv("DAProject1.csv")
+DAProject1 <- read.csv("DAProject1.csv")
+```
+
+```{r}
+
+dat$Obese <- as.factor(dat$Obese)
+
+model_add <- glm(
+  Obese ~ Age + Sex + Education + Veg + Fruit,
+  data = dat,
+  family = binomial
+)
+
+model_inter <- glm(
+  Obese ~ Age * Sex + Education + Veg + Fruit,
+  data = dat,
+  family = binomial
+)
+```
+
+```{r}
+library(performance)
+compare_performance(model_add,model_inter,metrics = "AIC")
+```
+
+$$
+Y_i \sim \text{Bernoulli}(p_i)
+$$
+
+$$
+\log\left(\frac{p_i}{1-p_i}\right)
+=
+\beta_0 + \beta_1 Age_i + \beta_2 Sex_i + \beta_3 (Age_i \times Sex_i)
++ \sum_{j=1}^{5} \beta_{4j} Education_{ij}
++ \beta_5 Veg_i + \beta_6 Fruit_i
+$$
+
+```{r, include=FALSE}
+dat$Obese <- as.factor(dat$Obese)
+dat$Sex <- as.factor(dat$Sex)
+dat$Education <- as.factor(dat$Education)
+dat$Veg <- as.factor(dat$Veg)
+dat$Fruit <- as.factor(dat$Fruit)
+
+model_inter <- glm(
+  Obese ~ Age * Sex + Education + Veg + Fruit,
+  data = dat,
+  family = binomial
+)
+
+tab_model(
+  model_inter,
+  show.ci = TRUE,
+  show.se = FALSE,
+  show.stat = FALSE,
+  show.aic = FALSE,
+  show.dev = FALSE,
+  show.obs = TRUE,
+  show.r2 = TRUE,
+  dv.labels = "Obese",
+  string.pred = "Predictors",
+  string.est = "Log-Odds",
+  string.ci = "CI",
+  string.p = "p"
+)
+```
+
+```{r}
+tab_model( model_inter, transform = NULL )
+
+```
+
+***if you run this you will wait for 2 mins***
+
+```{r, eval=FALSE}
+check_model(model_inter, panel = TRUE)
+
+```
+
+table
+
+```{r}
+DAProject1$prob <- predict(model_inter, type = "response")
+DAProject1$Obese <- factor(DAProject1$Obese, levels = c("No", "Yes"))
+```
+
+```{r}
+roc_obj <- roc(DAProject1$Obese, DAProject1$prob, levels = c("No", "Yes"))
+
+coords(roc_obj, "best", ret = c("threshold", "sensitivity", "specificity"))
+```
+
+```{r}
+cutoff <- 0.2858467
+
+DAProject1$pred_class <- ifelse(DAProject1$prob > cutoff, "Yes", "No")
+DAProject1$pred_class <- factor(DAProject1$pred_class, levels = c("No","Yes"))
+```
+
+```{r}
+bind_rows(
+  accuracy(DAProject1, truth = Obese, estimate = pred_class),
+  sens(DAProject1, truth = Obese, estimate = pred_class, event_level = "second"),
+  spec(DAProject1, truth = Obese, estimate = pred_class, event_level = "second"),
+  ppv(DAProject1, truth = Obese, estimate = pred_class, event_level = "second"),
+  npv(DAProject1, truth = Obese, estimate = pred_class, event_level = "second")
+)
+```
+
+plot
+
+```{r}
+roc_obj <- roc(DAProject1$Obese,
+               DAProject1$prob,
+               levels = c("No","Yes"))
+```
+
+```{r}
+plot(roc_obj,
+     col="black",
+     lwd=2,
+     legacy.axes=TRUE,
+     xlab="1 - specificity",
+     ylab="sensitivity",
+     xlim=c(1,0),
+     ylim=c(0,1),
+     xaxs="i",
+     yaxs="i")
+```
